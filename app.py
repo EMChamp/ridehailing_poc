@@ -9,7 +9,7 @@ class Map:
     def __init__(self):
         self.testVal = 0
         self.xPositionMax = self.yPositionMax =  2147483647
-        self.xPositionMin = self.yPositionMin  = -2147483648
+        self.xPositionMin = self.yPositionMin = -2147483648
         self.carList = [Car(i) for i in range(1,4)]
 
     def calcDistance(self, initialX, initialY, finalX, finalY):
@@ -58,6 +58,10 @@ class Map:
 
         return
 
+    def isValidCoordinates(self, xPositionPassenger, yPositionPassenger, xPositionDestination, yPositionDestination):
+        coordinateList = [xPositionPassenger, yPositionPassenger, xPositionDestination, yPositionDestination]
+        return all([x < self.xPositionMax and x > self.xPositionMin for x in coordinateList])
+
     def book(self, booking):
         try:
             xPositionPassenger = int(booking['source']['x'])
@@ -66,6 +70,10 @@ class Map:
             yPositionDestination = int(booking['destination']['y'])
         except:
             return 'Error: Could not convert booking to valid ints'
+
+        if not self.isValidCoordinates(xPositionPassenger, yPositionPassenger, xPositionDestination, yPositionDestination):
+            return 'Error: Coordinates not in range'
+
 
         distances = []
         for i in range(0,len(self.carList)):
@@ -125,19 +133,6 @@ class Booking:
         self.xPositionDestination = xPositionDestination
         self.yPositionDestination = yPositionDestination
 
-
-'''
-Booking = Booking(2,2)
-Map.bookCar(Booking)
-Map.printCarLocations()
-Map.tick()
-Map.tick()
-Map.tick()
-Map.tick()
-Map.printCarLocations()
-'''
-Map = Map()
-
 @app.route('/api/reset', methods=['GET'])
 def reset():
     return Map.reset()
@@ -155,4 +150,5 @@ def printCarLocations():
     return Map.printCarLocations()
 
 if __name__ == '__main__':
+    Map = Map()
     app.run(threaded=True)
