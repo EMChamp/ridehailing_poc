@@ -1,6 +1,6 @@
 Instructions:
 
-To run the webserver on port 8080, use 'python api.py 8080'. 
+To run the webserver on port 8080, use 'python api.py'. 
 
 To run the unit test script use 'python test.py'
 
