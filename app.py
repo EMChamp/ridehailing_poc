@@ -1,10 +1,6 @@
 from flask import Flask, request
-from flask_restful import Resource, Api
+from flask_restful import Api
 import json
-
-#Create a engine for connecting to SQLite3.
-#Assuming salaries.db is in your app root folder
-
 
 app = Flask(__name__)
 api = Api(app)
@@ -26,51 +22,68 @@ class Map:
     def tick(self):
         for car in self.carList:
             self.moveCar(car)
-        return 'Map tick occured'
+
+        return self.printCarLocations()
 
     def moveCar(self,car):
         # Go to passenger first, then go to destination
-        if(car.xPosition < car.xPositionPassenger):
-            car.xPosition += 1
-        elif(car.xPosition > car.xPositionPassenger):
-            car.xPosition -= 1
-        elif(car.yPosition < car.yPositionPassenger):
-            car.yPosition += 1
-        elif(car.yPosition > car.yPositionPassenger):
-            car.yPosition -= 1
-        elif(car.xPosition < car.xPositionDestination):
-            car.xPosition += 1
-        elif(car.xPosition > car.xPositionDestination):
-            car.xPosition -= 1
-        elif(car.yPosition < car.yPositionDestination):
-            car.yPosition += 1
-        elif(car.yPosition > car.yPositionDestination):
-            car.yPosition -= 1
+        if car.goToPassenger:
+            if(car.xPosition < car.xPositionPassenger):
+                car.xPosition += 1
+                return
+            elif(car.xPosition > car.xPositionPassenger):
+                car.xPosition -= 1
+                return
+            elif(car.yPosition < car.yPositionPassenger):
+                car.yPosition += 1
+                return
+            elif(car.yPosition > car.yPositionPassenger):
+                car.yPosition -= 1
+            else:
+                car.goToPassenger = False
+                car.goToDestination = True
         
-        if(car.xPosition == car.xPositionDestination and car.yPosition == car.yPositionDestination and car.xPosition == car.xPositionPassenger and car.yPosition == car.yPositionPassenger):
-            car.available = True
+        if car.goToDestination:
+            if(car.xPosition < car.xPositionDestination):
+                car.xPosition += 1
+            elif(car.xPosition > car.xPositionDestination):
+                car.xPosition -= 1
+            elif(car.yPosition < car.yPositionDestination):
+                car.yPosition += 1
+                return
+            elif(car.yPosition > car.yPositionDestination):
+                car.yPosition -= 1
+            else:
+                car.goToDestination = False
+
+        return
 
     def book(self, booking):
-        xPositionSource = booking['source']['x']
-        yPositionSource = booking['source']['y']
-        xPositionDestination = booking['destination']['x']
-        yPositionDestination = booking['destination']['y']
+        try:
+            xPositionPassenger = int(booking['source']['x'])
+            yPositionPassenger = int(booking['source']['y'])
+            xPositionDestination = int(booking['destination']['x'])
+            yPositionDestination = int(booking['destination']['y'])
+        except:
+            return 'Error: Could not convert booking to valid ints'
 
         distances = []
         for i in range(0,len(self.carList)):
-            carDistanceFromPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionSource, yPositionSource)
+            carDistanceFromPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionPassenger, yPositionPassenger)
             distances.append((carDistanceFromPassenger,i))
 
         distances.sort(key=lambda tup: tup[1])
 
         carBooking = {}
         for i in range(0,len(distances)):
-            if self.carList[i].available == True:
+            if self.carList[i].goToPassenger == False and self.carList[i].goToDestination == False:
                 carBooking['car_id'] = i
-                carToPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionSource, yPositionSource)
-                passengerToDestination = self.calcDistance(xPositionSource, yPositionSource, xPositionDestination, yPositionDestination)
+                carToPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionPassenger, yPositionPassenger)
+                passengerToDestination = self.calcDistance(xPositionPassenger, yPositionPassenger, xPositionDestination, yPositionDestination)
                 carBooking['total_time'] = carToPassenger + passengerToDestination
-                self.carList[i].available = False
+                self.carList[i].goToPassenger = True
+                self.carList[i].xPositionPassenger = xPositionPassenger
+                self.carList[i].yPositionPassenger = yPositionPassenger
                 self.carList[i].xPositionDestination = xPositionDestination
                 self.carList[i].yPositionDestination = yPositionDestination
                 break
@@ -83,22 +96,17 @@ class Map:
         return 'Map successfully reset'
 
     def printCarLocations(self):
+        carLocations = ''
         for car in self.carList:
-            print("car_id ",car.car_id) 
-            print("car x destination ",car.xPositionDestination) 
-            print("car y destination ",car.yPositionDestination)
-            print("car x position ",car.xPosition) 
-            print("car y position ",car.yPosition) 
+            carLocations += ("car_id " + str(car.car_id) + "<br />")
+            carLocations += ("car x destination " + str(car.xPositionDestination) + "<br />")
+            carLocations += ("car y destination " + str(car.yPositionDestination) + "<br />")
+            carLocations += ("car x passenger " + str(car.xPositionPassenger) + "<br />")
+            carLocations += ("car y passenger " + str(car.yPositionPassenger) + "<br />")
+            carLocations += ("car x position " + str(car.xPosition) + "<br />")
+            carLocations += ("car y position " + str(car.yPosition) + "<br />")
 
-
-    def incrTestVal(self):
-        self.testVal += 1
-        return self.printTestVal()
-
-    def printTestVal(self):
-        data = {}
-        data['testVal'] = self.testVal
-        return json.dumps(data)
+        return carLocations
 
 class Car:
     def __init__(self,car_id):
@@ -109,7 +117,8 @@ class Car:
         self.yPositionPassenger = 0
         self.xPositionDestination = 0
         self.yPositionDestination = 0
-        self.available = True
+        self.goToPassenger = False
+        self.goToDestination = False
 
 class Booking:
     def __init__(self,xPositionDestination,yPositionDestination):
@@ -127,6 +136,7 @@ Map.tick()
 Map.tick()
 Map.printCarLocations()
 '''
+Map = Map()
 
 @app.route('/api/reset', methods=['GET'])
 def reset():
@@ -134,22 +144,15 @@ def reset():
 
 @app.route('/api/book', methods=['POST'])
 def book():
-    data = request.get_json()
-    print(data['source']['x'])
     return Map.book(request.get_json())
 
 @app.route('/api/tick', methods=['GET'])
 def tick():
     return Map.tick()
 
-@app.route('/api/printTestVal', methods=['GET'])
-def testVal():
-    return Map.printTestVal()
-
-@app.route('/api/incrTestVal', methods=['GET'])
-def incrTestVal():
-    return Map.incrTestVal()
+@app.route('/api/print', methods=['GET'])
+def printCarLocations():
+    return Map.printCarLocations()
 
 if __name__ == '__main__':
-    Map = Map()
-    app.run()
+    app.run(threaded=True)
