@@ -17,6 +17,10 @@ class Map:
         self.carList = [Car(i) for i in range(1,4)]
 
     def calcDistance(self, initialX, initialY, finalX, finalY):
+        initialX = int(initialX)
+        initialY = int(initialY)
+        finalX = int(finalX)
+        finalY = int(finalY)
         return abs(initialX - finalX) + abs(initialY - finalY)
 
     def tick(self):
@@ -25,7 +29,16 @@ class Map:
         return 'Map tick occured'
 
     def moveCar(self,car):
-        if(car.xPosition < car.xPositionDestination):
+        # Go to passenger first, then go to destination
+        if(car.xPosition < car.xPositionPassenger):
+            car.xPosition += 1
+        elif(car.xPosition > car.xPositionPassenger):
+            car.xPosition -= 1
+        elif(car.yPosition < car.yPositionPassenger):
+            car.yPosition += 1
+        elif(car.yPosition > car.yPositionPassenger):
+            car.yPosition -= 1
+        elif(car.xPosition < car.xPositionDestination):
             car.xPosition += 1
         elif(car.xPosition > car.xPositionDestination):
             car.xPosition -= 1
@@ -34,26 +47,32 @@ class Map:
         elif(car.yPosition > car.yPositionDestination):
             car.yPosition -= 1
         
-        if(car.xPosition == car.xPositionDestination and car.yPosition == car.yPositionDestination):
+        if(car.xPosition == car.xPositionDestination and car.yPosition == car.yPositionDestination and car.xPosition == car.xPositionPassenger and car.yPosition == car.yPositionPassenger):
             car.available = True
 
     def book(self, booking):
+        xPositionSource = booking['source']['x']
+        yPositionSource = booking['source']['y']
+        xPositionDestination = booking['destination']['x']
+        yPositionDestination = booking['destination']['y']
+
         distances = []
         for i in range(0,len(self.carList)):
-            carDistanceFromDestination = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, self.carList[i].xPositionDestination, self.carList[i].yPositionDestination)
-            distances.append((carDistanceFromDestination,i))
+            carDistanceFromPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionSource, yPositionSource)
+            distances.append((carDistanceFromPassenger,i))
 
         distances.sort(key=lambda tup: tup[1])
 
-        
         carBooking = {}
         for i in range(0,len(distances)):
             if self.carList[i].available == True:
                 carBooking['car_id'] = i
-                carBooking['total_time'] = distances[i]
+                carToPassenger = self.calcDistance(self.carList[i].xPosition, self.carList[i].yPosition, xPositionSource, yPositionSource)
+                passengerToDestination = self.calcDistance(xPositionSource, yPositionSource, xPositionDestination, yPositionDestination)
+                carBooking['total_time'] = carToPassenger + passengerToDestination
                 self.carList[i].available = False
-                self.carList[i].xPositionDestination = booking.xPositionDestination
-                self.carList[i].yPositionDestination = booking.yPositionDestination
+                self.carList[i].xPositionDestination = xPositionDestination
+                self.carList[i].yPositionDestination = yPositionDestination
                 break
 
 
@@ -86,6 +105,8 @@ class Car:
         self.xPosition = 0
         self.yPosition = 0
         self.car_id = car_id
+        self.xPositionPassenger = 0
+        self.yPositionPassenger = 0
         self.xPositionDestination = 0
         self.yPositionDestination = 0
         self.available = True
@@ -95,8 +116,6 @@ class Booking:
         self.xPositionDestination = xPositionDestination
         self.yPositionDestination = yPositionDestination
 
-
-Map = Map()
 
 '''
 Booking = Booking(2,2)
@@ -116,7 +135,8 @@ def reset():
 @app.route('/api/book', methods=['POST'])
 def book():
     data = request.get_json()
-    return json.dumps(data)
+    print(data['source']['x'])
+    return Map.book(request.get_json())
 
 @app.route('/api/tick', methods=['GET'])
 def tick():
@@ -130,6 +150,6 @@ def testVal():
 def incrTestVal():
     return Map.incrTestVal()
 
-
 if __name__ == '__main__':
-     app.run()
+    Map = Map()
+    app.run()
